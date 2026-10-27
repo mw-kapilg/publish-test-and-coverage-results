@@ -21,3 +21,5 @@ On each pull request, CI publishes:
 - The raw JUnit and Cobertura XML files, uploaded as the `test-and-coverage-reports` artifact.
 
 PRs from forks get a read-only token, so they get the job summary and artifact but no PR comments.
+
+See the PR checks and comments for test results and coverage.
