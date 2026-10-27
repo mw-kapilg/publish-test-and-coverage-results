@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  checks: write         # publish test results as a check run
+  pull-requests: write  # post test and coverage comments on the PR
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,3 +26,45 @@ jobs:
         uses: matlab-actions/run-tests@v3
         with:
           source-folder: src
+          select-by-folder: tests
+          test-results-junit: test-results/results.xml
+          code-coverage-cobertura: code-coverage/coverage.xml
+
+      # The steps below run even when tests fail, so failures are reported.
+
+      - name: Publish test results
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: test-results/results.xml
+          # Fork PRs get a read-only token, so only comment on same-repo PRs.
+          comment_mode: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'always' || 'off' }}
+
+      - name: Summarize code coverage
+        if: ${{ !cancelled() }}
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: code-coverage/coverage.xml
+          format: markdown
+          output: both
+          badge: true
+
+      - name: Add coverage to job summary
+        if: ${{ !cancelled() }}
+        run: cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment coverage on pull request
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: code-coverage
+          path: code-coverage-results.md
+
+      - name: Upload test and coverage reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-reports
+          path: |
+            test-results/
+            code-coverage/
